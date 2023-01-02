@@ -4,8 +4,8 @@ import numpy as np
 import math
 
 
-def MySIFT():
-
+def MySIFT(img):
+    octaveNum = 
 
     pass
 

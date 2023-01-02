@@ -81,6 +81,7 @@ def myGaussian2DKernel(kernelSize=3,sigma=1):
     FunctionName    :   
     FunctionDescribe:   
     InputParameter  :   ①
+                        
     OutputParameter :   ①
     Specification   :   kernel元素之和不一定为1，可能会有些误差。eg：myGaussian2DKernel(5,5)的和为0.99999994
     """
@@ -93,7 +94,7 @@ def myLaplacianOfGaussianFunction(sigma=1, xyPos=(0,0)):
     FunctionDescribe:   LOG
     InputParameter  :   ①
     OutputParameter :   ①
-    Specification   :   倒置墨西哥帽
+    Specification   :   倒置墨西哥帽 Inverted Mexican Hat
     """
     if len(xyPos)!=2:
         return None
@@ -125,7 +126,10 @@ def myLaplacianOfGaussianKernel(kernelSize=3,sigma=1,zoomCoeff=(2*math.pi)):
         for j in range(0,i+1):
             curVal = myLaplacianOfGaussianFunction(sigma, (i,j))*zoomCoeff
             print(i,j,curVal)
-            if j!=0:  # 不在十字轴线上，算8次
+            if i==j:  # 在斜对角线上，算4次
+                kernel[kernelHalfSize+i,kernelHalfSize+i] = curVal; kernel[kernelHalfSize+i,kernelHalfSize-i] = curVal
+                kernel[kernelHalfSize-i,kernelHalfSize+i] = curVal; kernel[kernelHalfSize-i,kernelHalfSize-i] = curVal
+            elif j!=0:  # 不在十字轴线上，算8次
                 kernel[kernelHalfSize+i,kernelHalfSize+j] = curVal; kernel[kernelHalfSize+j,kernelHalfSize+i] = curVal
                 kernel[kernelHalfSize-i,kernelHalfSize+j] = curVal; kernel[kernelHalfSize+j,kernelHalfSize-i] = curVal
                 kernel[kernelHalfSize+i,kernelHalfSize-j] = curVal; kernel[kernelHalfSize-j,kernelHalfSize+i] = curVal
@@ -140,17 +144,39 @@ def myLaplacianOfGaussianKernel(kernelSize=3,sigma=1,zoomCoeff=(2*math.pi)):
     return kernel
 
 
+def myDifferenceOfGaussianKernel(kernelSize=3,sigma=1,kNearOne=1.1,zoomCoeff=None):
+    r"""
+    FunctionName    :   
+    FunctionDescribe:   
+    InputParameter  :   ①
+    OutputParameter :   ①②③④⑤⑥⑦⑧⑨⑩
+    Specification   :   
+    """
+    if zoomCoeff is None:
+        zoomCoeff = 1/((kNearOne-1)*sigma**2)
+    biggerSigma = sigma*kNearOne
+    smallerSigma = sigma
+    gaussianKernelBiggerSigma = myGaussian2DKernel(kernelSize, biggerSigma)
+    gaussianKernelSmallerSigma = myGaussian2DKernel(kernelSize, smallerSigma)
+    kernel = (gaussianKernelBiggerSigma - gaussianKernelSmallerSigma)*zoomCoeff
+    print("[myDifferenceOfGaussianKernel]:   sum(DOG Kernel): ", np.sum(kernel))
+    return kernel
+
+
+
 if __name__ == "__main__":
     r"""
     FunctionName    :   
     FunctionDescribe:   
     InputParameter  :   ①
-    OutputParameter :   ①
+    OutputParameter :   ①②③④⑤⑥⑦⑧⑨⑩
     Specification   :   
     """
     sigma = 1
-    print(myLaplacianOfGaussianFunction(sigma, (1,0)))
+    # print(myLaplacianOfGaussianFunction(sigma, (1,0)))
     print(myLaplacianOfGaussianKernel(7,sigma))
-
+    print(myDifferenceOfGaussianKernel(7,sigma,1.1,80))
+    
+    
 
     pass
