@@ -125,7 +125,7 @@ def myLaplacianOfGaussianKernel(kernelSize=3,sigma=1,zoomCoeff=(2*math.pi)):
     for i in range(1,kernelHalfSize+1):
         for j in range(0,i+1):
             curVal = myLaplacianOfGaussianFunction(sigma, (i,j))*zoomCoeff
-            print(i,j,curVal)
+            # print(i,j,curVal)
             if i==j:  # 在斜对角线上，算4次
                 kernel[kernelHalfSize+i,kernelHalfSize+i] = curVal; kernel[kernelHalfSize+i,kernelHalfSize-i] = curVal
                 kernel[kernelHalfSize-i,kernelHalfSize+i] = curVal; kernel[kernelHalfSize-i,kernelHalfSize-i] = curVal
@@ -144,17 +144,21 @@ def myLaplacianOfGaussianKernel(kernelSize=3,sigma=1,zoomCoeff=(2*math.pi)):
     return kernel
 
 
-def myDifferenceOfGaussianKernel(kernelSize=3,sigma=1,kNearOne=1.1,zoomCoeff=None):
+def myDifferenceOfGaussianKernel(kernelSize=3,sigma=1,kCloseToOne=1.001,zoomCoeff=None):
     r"""
     FunctionName    :   
     FunctionDescribe:   
     InputParameter  :   ①
-    OutputParameter :   ①②③④⑤⑥⑦⑧⑨⑩
-    Specification   :   
+                        ②
+                        ③kCloseToOne : a number with close to 1 use to approximate ∂(G)/∂(sigma)
+                        ④default : zoomCoeff = 1/((kCloseToOne-1)*sigma**2)*2*math.pi
+    OutputParameter :   
+    Specification   :   Related Blog : https://zhuanlan.zhihu.com/p/446286009
+                        Related File : http://www.cse.yorku.ca/~kosta/CompVis_Notes/DoG_vs_LoG.pdf
     """
     if zoomCoeff is None:
-        zoomCoeff = 1/((kNearOne-1)*sigma**2)
-    biggerSigma = sigma*kNearOne
+        zoomCoeff = 1/((kCloseToOne-1)*sigma**2)*2*math.pi
+    biggerSigma = sigma*kCloseToOne
     smallerSigma = sigma
     gaussianKernelBiggerSigma = myGaussian2DKernel(kernelSize, biggerSigma)
     gaussianKernelSmallerSigma = myGaussian2DKernel(kernelSize, smallerSigma)
@@ -174,8 +178,9 @@ if __name__ == "__main__":
     """
     sigma = 1
     # print(myLaplacianOfGaussianFunction(sigma, (1,0)))
-    print(myLaplacianOfGaussianKernel(7,sigma))
-    print(myDifferenceOfGaussianKernel(7,sigma,1.1,80))
+    LOG = myLaplacianOfGaussianKernel(7,sigma)
+    DOG = myDifferenceOfGaussianKernel(7,sigma,1.0001)
+    print(LOG-DOG)
     
     
 
