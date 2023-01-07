@@ -1,4 +1,3 @@
-import cv2 as cv
 import numpy as np
 import math
 
@@ -106,7 +105,7 @@ def myLaplacianOfGaussianFunction(sigma=1, xyPos=(0,0)):
 def myLaplacianOfGaussianKernel(kernelSize=3,sigma=1,zoomCoeff=(2*math.pi)):
     r"""
     FunctionName    :   
-    FunctionDescribe:   
+    FunctionDescribe:   默认放大2pi倍
     InputParameter  :   ①
     OutputParameter :   ①
     Specification   :   检查两侧LOG响应值符号是否相反，如果一正一负，说明中间存在灰度剧烈变化的点，可以看作边缘
@@ -147,7 +146,7 @@ def myLaplacianOfGaussianKernel(kernelSize=3,sigma=1,zoomCoeff=(2*math.pi)):
 def myDifferenceOfGaussianKernel(kernelSize=3,sigma=1,kCloseToOne=1.001,zoomCoeff=None):
     r"""
     FunctionName    :   
-    FunctionDescribe:   
+    FunctionDescribe:   默认放大2pi倍
     InputParameter  :   ①
                         ②
                         ③kCloseToOne : a number with close to 1 use to approximate ∂(G)/∂(sigma)
@@ -174,6 +173,11 @@ if __name__ == "__main__":
     FunctionDescribe:   
     InputParameter  :   ①
     OutputParameter :   ①②③④⑤⑥⑦⑧⑨⑩
+    Specification   :   
+    """
+    r"""
+    ClassName       :   
+    ClassDescribe   :   
     Specification   :   
     """
     sigma = 1

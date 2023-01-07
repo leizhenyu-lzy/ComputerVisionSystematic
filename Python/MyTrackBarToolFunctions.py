@@ -1,11 +1,10 @@
-import cv2 as cv
-import torch
+import cv2
 
 
 def cannyWithTrackBar(outerPath, onChangeCannyThreshLow=None, onChangeCannyThreshHigh=None):
     r"""
     FunctionName    : myCannyWithTrackBar
-    FunctionDescribe: 使用OpenCV的Canny结合Trackbar，用于选出Canny的两个阈值，按下'q'键退出
+    FunctionDescribe: 使用OpenCV2的Canny结合Trackbar，用于选出Canny的两个阈值，按下'q'键退出
     InputParameter  : ①outerPath(str 图片路径)  
                       ②onChangeCannyThreshLow(默认None)  
                       ③onChangeCannyThreshHigh(默认None)
@@ -14,7 +13,7 @@ def cannyWithTrackBar(outerPath, onChangeCannyThreshLow=None, onChangeCannyThres
                       ③cannyThresholdHigh
     """
     path = outerPath
-    imgGray = cv.imread(path, cv.IMREAD_GRAYSCALE)
+    imgGray = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     # 对应两个trackbar的onChange函数
     def recallCannyThresholdLow(threshold):
         # print("recallCannyThresholdLow: ", threshold)
@@ -23,23 +22,23 @@ def cannyWithTrackBar(outerPath, onChangeCannyThreshLow=None, onChangeCannyThres
         # print("recallCannyThresholdLow: ", threshold)
         pass
 
-    cv.namedWindow("CannyThresholds")
-    cv.resizeWindow("CannyThresholds", 500, 150)
+    cv2.namedWindow("CannyThresholds")
+    cv2.resizeWindow("CannyThresholds", 500, 100)
     if (onChangeCannyThreshHigh is None) or (onChangeCannyThreshLow is None):
-        cv.createTrackbar("CannyThreshLow","CannyThresholds",0,255,recallCannyThresholdLow)
-        cv.createTrackbar("CannyThreshHigh","CannyThresholds",0,255,recallCannyThresholdHigh)
+        cv2.createTrackbar("CannyThreshLow","CannyThresholds",0,255,recallCannyThresholdLow)
+        cv2.createTrackbar("CannyThreshHigh","CannyThresholds",0,255,recallCannyThresholdHigh)
     else:
-        cv.createTrackbar("CannyThreshLow","CannyThresholds",0,255,onChangeCannyThreshLow)
-        cv.createTrackbar("CannyThreshHigh","CannyThresholds",0,255,onChangeCannyThreshHigh)
+        cv2.createTrackbar("CannyThreshLow","CannyThresholds",0,255,onChangeCannyThreshLow)
+        cv2.createTrackbar("CannyThreshHigh","CannyThresholds",0,255,onChangeCannyThreshHigh)
 
     while True:
-        thresholdLow = cv.getTrackbarPos("CannyThreshLow", "CannyThresholds")
-        thresholdHigh = cv.getTrackbarPos("CannyThreshHigh", "CannyThresholds")
-        imgCanny = cv.Canny(imgGray,thresholdLow,thresholdHigh)
-        cv.imshow("imgCanny", imgCanny)
+        thresholdLow = cv2.getTrackbarPos("CannyThreshLow", "CannyThresholds")
+        thresholdHigh = cv2.getTrackbarPos("CannyThreshHigh", "CannyThresholds")
+        imgCanny = cv2.Canny(imgGray,thresholdLow,thresholdHigh)
+        cv2.imshow("imgCanny", imgCanny)
         
-        if cv.waitKey(1)&0xFF == ord('q'):
-            cv.destroyAllWindows()
+        if cv2.waitKey(1)&0xFF == ord('q'):
+            cv2.destroyAllWindows()
             print("CannyThresholdLow: ",min(thresholdHigh,thresholdLow),
                     "\nCannyThresholdHigh: ",max(thresholdHigh,thresholdLow))
             print(type(imgCanny))
@@ -48,3 +47,6 @@ def cannyWithTrackBar(outerPath, onChangeCannyThreshLow=None, onChangeCannyThres
 
 if __name__ == "__main__":
     cannyWithTrackBar("./PicsForCode/StraightLines/StraightLines01.jpg")
+
+
+    
