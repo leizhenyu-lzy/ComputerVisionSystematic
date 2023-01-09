@@ -152,23 +152,22 @@ class MyDifferenceOfGaussianPyramid():
                             # or (minValInCube == tempPointVal and (surroudCube==minValInCube).sum()==1):  # 极大或极小都算，且周围不允许一样大的或小的
                             if (maxValInCube == tempPointVal) or (minValInCube == tempPointVal):  # 极大或极小都算，且周围允许有一样的
                                 discreteExtremaPointsInBool[i,j,k] = True
-            print("[locateDiscreteKeyPointsInDOGs] : No.%d DOGs 共有 %d 个离散极值点"%(self.octaveID, discreteExtremaPointsInBool.sum()))
+            print("[locateDiscreteKeyPointsInDOGs] : No.%d Octave's DOGs 共有 %d 个离散极值点"%(self.octaveID, discreteExtremaPointsInBool.sum()))
             return discreteExtremaPointsInBool
-            
+            # 找出亚像素极值点
+
         def locatePreciseKeyPointsInDOGs(self, discreteExtremaPointsInBool, iterateMaxTimes=5, totalOffsetUpperLimit=5, stopOnceOffsetLimit=0.5, derivMatCoeff=1/5):
             """
-            找出亚像素极值点
             Related Blogs
             [关键点定位](https://blog.csdn.net/shiyongraow/article/details/78296710)
             [SIFT算法详解](https://blog.csdn.net/zddblog/article/details/7521424)
             [Sift 关键点检测](https://zhuanlan.zhihu.com/p/462061756)
             """
             contrastThreshold = self.T/self.wantedUsefulDOGs
-            singularMatrixPoints = 0
-            outOfBoundPoints = 0
-            noChangeInfeasiblePoints = 0
+            singularMatrixPoint = 0
+            overflowDerivPoint = 0
+            noChangeBadPoint = 0
             preciseExtremaPointsInBool = np.zeros_like(discreteExtremaPointsInBool, dtype=bool)  # 和离散一个形状
-            preciseExtremaPointsValInFloat = np.zeros_like(discreteExtremaPointsInBool, dtype=np.float32)  # 和离散一个形状
             for i in range(1,(self.octaveDOGs).shape[0]-1):
                 for j in range(1,(self.octaveDOGs).shape[1]-1):
                     for k in range(1,(self.octaveDOGs).shape[2]-1):
@@ -179,12 +178,19 @@ class MyDifferenceOfGaussianPyramid():
                             totalOffset = np.zeros_like(pointOrigin,dtype=np.float32)  # 记录迭代的总的偏移量，初始为全零
                             for iter in range(iterateMaxTimes):  # 限制迭代次数
                                 derivMatrix, hessianMatrix = self.computeDerivativeAndHessianMatrix(iterPoint, derivMatCoeff)
-                                if(np.linalg.det(hessianMatrix)==0):  # 避免后续遇到奇异值矩阵无法迭代
+                                if(np.linalg.det(hessianMatrix)==0):  # 遇到奇异值矩阵无法迭代
                                     # print("[locatePreciseKeyPointsInDOGs] : Singular Hessian Matrix at point",(i,j,k)," | Iteration : ", iter)
                                     # print(hessianMatrix)
-                                    singularMatrixPoints += 1
+                                    singularMatrixPoint += 1
                                     break
-                                tempOffsetFloat = -(hessianMatrix.I)*iterPoint  # 矩阵对象可以通过 .I 更方便的求逆
+
+                                tempOffsetFloat = -(hessianMatrix.I)*iterPoint  # 矩阵对象可以通过 .I 更方便的求逆  # shape:(3, 1) type:<class 'numpy.matrix'>
+                                
+                                # if (tempOffsetFloat>min(self.slicesShape)).sum() != 0:
+                                # # if (tempOffsetFloat>10000.0).sum() != 0:
+                                #     # print("very big",tempOffsetFloat)
+                                #     overflowDerivPoint+=1
+                                #     break
                                 tempOffsetInt = (np.round(tempOffsetFloat)).astype(dtype=np.int32)
                                 iterPoint += tempOffsetInt  # 更新当前迭代点的位置
 
@@ -193,37 +199,36 @@ class MyDifferenceOfGaussianPyramid():
                                 if (posS<1 or posS>(self.octaveDOGs).shape[0]-2) \
                                 or (posX<1 or posX>(self.octaveDOGs).shape[1]-2) \
                                 or (posY<1 or posY>(self.octaveDOGs).shape[2]-2):  # 迭代点位置超出范围
-                                    outOfBoundPoints += 1
                                     break  # 跳过当前点的后续迭代
 
                                 totalOffset += tempOffsetInt  # 更新总偏移量
 
                                 if (tempOffsetFloat.__abs__()<stopOnceOffsetLimit).sum() == 3:  # 相邻两次迭代的三个分量的偏移都在容许范围内，当前迭代点可能为极值(不一定是(i,j,k))
+                                    # print("possible")
                                     if (totalOffset.__abs__()<totalOffsetUpperLimit).sum() == 3:  # 和最初的位置的偏移可以接受，符合泰勒展开在初始点附近近似的要求
                                         tempFunctionVal = (self.octaveDOGs)[i,j,k] + 0.5*derivMatrix*tempOffsetFloat  # derivMatrix(1,3)  tempOffsetFloat(3,1)
-                                        hessianMatrixXY = hessianMatrix[1:,1:]  # 3×3hessian右下2×2为XY的矩阵
+                                        hessianMatrixXY = hessianMatrix[1:,1:]  # 右下2×2为XY的矩阵
                                         trHessianXY = hessianMatrixXY.trace()
                                         detHessianXY = np.linalg.det(hessianMatrixXY)
                                         # 消除低对比度的点以及边缘效应
-                                        if abs(tempFunctionVal) < contrastThreshold:
+                                        if not (abs(tempFunctionVal)>=contrastThreshold):
                                             break
                                         if not ((detHessianXY>0) and ((trHessianXY**2/detHessianXY)<12.1)):
                                             break
                                         preciseExtremaPointsInBool[posS,posX,posY] = True
-                                        preciseExtremaPointsValInFloat[posS,posX,posY] = tempFunctionVal
                                         # print("[locatePreciseKeyPointsInDOGs] : ",(posS,posX,posY))
-                                        break  # 无论如何都break
-                                elif (tempOffsetFloat.__abs__()<1).sum() == 3:  # 如果三个坐标变化量不都在容许范围内却又不至于改变当前坐标，则不会收敛了，跳过该点
-                                    noChangeInfeasiblePoints += 1
+                                        break  # 无论如何都break，要么精细合适的点，要么是不满足条件且经过迭代不变的点
+                                elif (tempOffsetFloat.__abs__()<1).sum() == 3:  # 如果三个坐标变化量都不再容许范围内却又不至于改变当前坐标，则不会收敛了，跳过该点
+                                    noChangeBadPoint += 1
                                     break
             print("[locatePreciseKeyPointsInDOGs] : No.%d DOGs 共有 %d 个亚像素极值点"%(self.octaveID, preciseExtremaPointsInBool.sum()))
-            print("[locatePreciseKeyPointsInDOGs] : singularMatrixPoints    :%d"%(singularMatrixPoints))
-            print("[locatePreciseKeyPointsInDOGs] : outOfBoundPoints        :%d"%(outOfBoundPoints))
-            print("[locatePreciseKeyPointsInDOGs] : noChangeInfeasiblePoints:%d"%(noChangeInfeasiblePoints))
+            print("[locatePreciseKeyPointsInDOGs] : singularMatrixPoint :%d"%(singularMatrixPoint))
+            print("[locatePreciseKeyPointsInDOGs] : overflowDerivPoint  :%d"%(overflowDerivPoint))
+            print("[locatePreciseKeyPointsInDOGs] : noChangeBadPoint    :%d"%(noChangeBadPoint))
+            
 
 
         def computeDerivativeAndHessianMatrix(self, pointCol3D, derivMatCoeff):
-            """利用有限差分法求导，pointCol3D是(3*1)列向量，derivMatCoeff用于后续缩放系数"""
             # 一阶偏导和二阶偏导的放缩系数
             firstDerivCoeff = 1/(2*derivMatCoeff)
             secondDerivCoeff = 1/(derivMatCoeff*derivMatCoeff)
@@ -240,11 +245,14 @@ class MyDifferenceOfGaussianPyramid():
             dxx = (self.octaveDOGs[s,x+1,y]+self.octaveDOGs[s,x-1,y]-2*self.octaveDOGs[s,x,y])*secondDerivCoeff
             dyy = (self.octaveDOGs[s,x,y+1]+self.octaveDOGs[s,x,y-1]-2*self.octaveDOGs[s,x,y])*secondDerivCoeff
             # 交叉偏导
-            dsx = ((self.octaveDOGs[s+1,x+1,y]+self.octaveDOGs[s-1,x-1,y])-(self.octaveDOGs[s+1,x-1,y]+self.octaveDOGs[s-1,x+1,y]))*crossDerivCoeff
+            dsx = ((self.octaveDOGs[s+1,x+1,y]+self.octaveDOGs[s-1,x-1,y])
+                   -(self.octaveDOGs[s+1,x-1,y]+self.octaveDOGs[s-1,x+1,y]))*crossDerivCoeff
             dxs = dsx
-            dxy = ((self.octaveDOGs[s,x+1,y+1]+self.octaveDOGs[s,x-1,y-1])-(self.octaveDOGs[s,x+1,y-1]+self.octaveDOGs[s,x-1,y+1]))*crossDerivCoeff
+            dxy = ((self.octaveDOGs[s,x+1,y+1]+self.octaveDOGs[s,x-1,y-1])
+                   -(self.octaveDOGs[s,x+1,y-1]+self.octaveDOGs[s,x-1,y+1]))*crossDerivCoeff
             dyx = dxy
-            dys = ((self.octaveDOGs[s+1,x,y+1]+self.octaveDOGs[s-1,x,y-1])-(self.octaveDOGs[s+1,x,y-1]+self.octaveDOGs[s-1,x,y+1]))*crossDerivCoeff
+            dys = ((self.octaveDOGs[s+1,x,y+1]+self.octaveDOGs[s-1,x,y-1])
+                   -(self.octaveDOGs[s+1,x,y-1]+self.octaveDOGs[s-1,x,y+1]))*crossDerivCoeff
             dsy = dys
             # 矩阵构建
             DerivMat1by3 = np.matrix([ds,dx,dy], dtype=np.float32)
@@ -270,10 +278,7 @@ def MySIFT(img):
     [Sift 关键点检测](https://zhuanlan.zhihu.com/p/462061756)
 
     """
-
     pass
-
-
 
 
 if __name__ == "__main__":
@@ -282,6 +287,10 @@ if __name__ == "__main__":
     pyramid = MyDifferenceOfGaussianPyramid(img,None,2,visualGenerate=False)
     discreteExtremaPointsInBool = (pyramid.allOctaves[0]).locateDiscreteKeyPointsInDOGs(pyramid.wantedUsefulDOGs)
     preciseExtremaPointsInBool = (pyramid.allOctaves[0]).locatePreciseKeyPointsInDOGs(discreteExtremaPointsInBool)
+    
+    
+    
+    
 
 
 
