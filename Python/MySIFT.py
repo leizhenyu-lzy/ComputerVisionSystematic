@@ -89,6 +89,8 @@ class MyDifferenceOfGaussianPyramid():
             self.wantedUsefulDOGs = wantedUsefulDOGs
             self.T = T
             self.visualGenerate = visualGenerate
+            self.preciseKeyPointsPosInOctave = None
+            self.preciseKeyPointsPosInOriginImg = []
             self.generateOctaveSlices()  # 初始化时，顺便将slices生成
             self.generateOctaveDOGs()
 
@@ -167,8 +169,8 @@ class MyDifferenceOfGaussianPyramid():
             singularMatrixPoints = 0
             outOfBoundPoints = 0
             noChangeInfeasiblePoints = 0
-            preciseExtremaPointsInBool = np.zeros_like(discreteExtremaPointsInBool, dtype=bool)  # 和离散一个形状
-            preciseExtremaPointsValInFloat = np.zeros_like(discreteExtremaPointsInBool, dtype=np.float32)  # 和离散一个形状
+            keyPointsPosConvertCoeff = 2**(self.octaveID)  # 从Octave中关键点坐标转为原图中的坐标所要乘的系数
+            self.preciseKeyPointsPosInOctave = np.zeros_like(discreteExtremaPointsInBool, dtype=bool)  # 和离散一个形状
             for i in range(1,(self.octaveDOGs).shape[0]-1):
                 for j in range(1,(self.octaveDOGs).shape[1]-1):
                     for k in range(1,(self.octaveDOGs).shape[2]-1):
@@ -209,17 +211,21 @@ class MyDifferenceOfGaussianPyramid():
                                             break
                                         if not ((detHessianXY>0) and ((trHessianXY**2/detHessianXY)<12.1)):
                                             break
-                                        preciseExtremaPointsInBool[posS,posX,posY] = True
-                                        preciseExtremaPointsValInFloat[posS,posX,posY] = tempFunctionVal
+                                        # 通过检查
+                                        (self.preciseKeyPointsPosInOctave)[posS,posX,posY] = True
+                                        (self.preciseKeyPointsPosInOriginImg).append([posS,posX*keyPointsPosConvertCoeff,posY*keyPointsPosConvertCoeff])
+
                                         # print("[locatePreciseKeyPointsInDOGs] : ",(posS,posX,posY))
                                         break  # 无论如何都break
                                 elif (tempOffsetFloat.__abs__()<1).sum() == 3:  # 如果三个坐标变化量不都在容许范围内却又不至于改变当前坐标，则不会收敛了，跳过该点
                                     noChangeInfeasiblePoints += 1
                                     break
-            print("[locatePreciseKeyPointsInDOGs] : No.%d DOGs 共有 %d 个亚像素极值点"%(self.octaveID, preciseExtremaPointsInBool.sum()))
+            print("[locatePreciseKeyPointsInDOGs] : No.%d DOGs 共有 %d 个亚像素极值点"%(self.octaveID, (self.preciseKeyPointPosInOctave).sum()))
             print("[locatePreciseKeyPointsInDOGs] : singularMatrixPoints    :%d"%(singularMatrixPoints))
             print("[locatePreciseKeyPointsInDOGs] : outOfBoundPoints        :%d"%(outOfBoundPoints))
             print("[locatePreciseKeyPointsInDOGs] : noChangeInfeasiblePoints:%d"%(noChangeInfeasiblePoints))
+            print(self.preciseKeyPointsPosInOriginImg)
+            
 
 
         def computeDerivativeAndHessianMatrix(self, pointCol3D, derivMatCoeff):
@@ -254,6 +260,8 @@ class MyDifferenceOfGaussianPyramid():
             # 返回值
             return DerivMat1by3, HessianMat3by3
 
+        def showPreciseKeyPointsInOriginImg(self, imgOrigin):
+            pass
 
 
 def MySIFT(img):
@@ -279,7 +287,7 @@ def MySIFT(img):
 if __name__ == "__main__":
     img = cv2.imread(r"./PicsForCode/FeatureExtract/fdfz02.png")
     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    pyramid = MyDifferenceOfGaussianPyramid(img,None,2,visualGenerate=False)
+    pyramid = MyDifferenceOfGaussianPyramid(img,None,2,visualGenerate=True)
     discreteExtremaPointsInBool = (pyramid.allOctaves[0]).locateDiscreteKeyPointsInDOGs(pyramid.wantedUsefulDOGs)
     preciseExtremaPointsInBool = (pyramid.allOctaves[0]).locatePreciseKeyPointsInDOGs(discreteExtremaPointsInBool)
 
