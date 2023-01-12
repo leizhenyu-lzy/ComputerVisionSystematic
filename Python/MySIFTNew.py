@@ -10,7 +10,7 @@ class MyDifferenceOfGaussianPyramid():
     Specification   :   \n
     """
 
-    def __init__(self, imgOrigin, octaveNumOfPyramid = None, wantedUsefulDOGs = None, T=0.04, visualGenerate = False):
+    def __init__(self, imgGray, octaveNumOfPyramid = None, wantedUsefulDOGs = None, T=0.04, visualGenerate = False):
         """
         FunctionDescribe:   
                             Init the DOGs Pyramid. Octaves模拟近大远小，高斯核卷积模拟清晰和模糊 \n
@@ -24,13 +24,13 @@ class MyDifferenceOfGaussianPyramid():
         Specification   :   
                             Related Blog : https://www.bilibili.com/video/BV1Qb411W7cK/ \n
         """
-        if len(imgOrigin.shape)!=2:  # 图片维数必须为2
+        if len(imgGray.shape)!=2:  # 图片维数必须为2
             print("[myDifferenceOfGaussianPyramid::__init__] : The img's dimension is not 2.")
             exit(-1)
-        self.imgOrigin = imgOrigin
+        self.imgGray = imgGray
 
         if octaveNumOfPyramid is None :
-            self.octaveNumOfPyramid = int(math.log2(min(imgOrigin.shape[0], imgOrigin.shape[1])))-3  # 金字塔大层数（论文推荐数量）
+            self.octaveNumOfPyramid = int(math.log2(min(imgGray.shape[0], imgGray.shape[1])))-3  # 金字塔大层数（论文推荐数量）
         elif octaveNumOfPyramid < 0:
             print("[myDifferenceOfGaussianPyramid::__init__] : octaveNumOfPyramid < 0.")
             exit(-1)
@@ -48,13 +48,13 @@ class MyDifferenceOfGaussianPyramid():
         self.sigmaGainPerSlice = 2**(1/wantedUsefulDOGs)  # 同一Octave中，相邻slice的sigma增益（论文推荐值）
         self.sigmaGainPerOctave = 2  # 相邻octave的sigma增益（论文推荐值，self.sigmaGainPerSlice的wantedUsefulDOGs次方，即为2）
         self.allOctaves = []  # 创建Octaves数组
-        self.pyramidFirstSigma = math.sqrt(1.6**2-0.5**2)  # 论文经验值
+        self.pyramidFirstSigma = math.sqrt(1.6**2-0.5**2)  # 论文经验值  # 0.5是摄像图初始的模糊度，1.6是论文认为的需要达到的模糊度
         self.visualGenerate = visualGenerate
         self.T = T
         self.generateGaussianOctaves()  # 在初始化时，顺便构建高斯金字塔(不是差分)
 
     def generateGaussianOctaves(self):
-        tempOctaveImg = self.imgOrigin
+        tempOctaveImg = self.imgGray
         tempOctaveSigma = self.pyramidFirstSigma
         for octaveID in range(self.octaveNumOfPyramid):  # idx小的在下
             tempOctave = self.MyOctave(octaveID, self.sliceNumOfOctave, tempOctaveImg, tempOctaveSigma
@@ -135,7 +135,7 @@ class MyDifferenceOfGaussianPyramid():
 
         def locateDiscreteKeyPointsInDOGs(self, wantedUsefulDOGs):
             # 先使用threshold筛选
-            contrastThreshold = (self.T)/wantedUsefulDOGs  # 高要求
+            contrastThreshold = (self.T)/wantedUsefulDOGs*255  # 高要求
             # pointThreshold = 0.5*(self.T)/wantedUsefulDOGs  # 低要求
             pointsAfterThresholdInBool = (self.octaveDOGs)>contrastThreshold  # 矩阵操作，返回一个相同形状的布尔值矩阵
             print("[locateDiscreteKeyPointsInDOGs] : No.%d Octave's DOGs' shape"%(self.octaveID),self.octaveDOGs.shape)
@@ -150,14 +150,14 @@ class MyDifferenceOfGaussianPyramid():
                             maxValInCube = surroudCube.max(); minValInCube = surroudCube.min()
                             tempPointVal = (self.octaveDOGs)[i,j,k]  # 当前点的值
                             
-                            # if (maxValInCube == tempPointVal and (surroudCube==maxValInCube).sum()==1) \
-                            # or (minValInCube == tempPointVal and (surroudCube==minValInCube).sum()==1):  # 极大或极小都算，且周围不允许一样大的或小的
-                            if (maxValInCube == tempPointVal) or (minValInCube == tempPointVal):  # 极大或极小都算，且周围允许有一样的
+                            if (maxValInCube == tempPointVal and (surroudCube==maxValInCube).sum()==1) \
+                            or (minValInCube == tempPointVal and (surroudCube==minValInCube).sum()==1):  # 极大或极小都算，且周围不允许一样大的或小的
+                            # if (maxValInCube == tempPointVal) or (minValInCube == tempPointVal):  # 极大或极小都算，且周围允许有一样的
                                 discreteExtremaPointsInBool[i,j,k] = True
             print("[locateDiscreteKeyPointsInDOGs] : No.%d DOGs 共有 %d 个离散极值点"%(self.octaveID, discreteExtremaPointsInBool.sum()))
             return discreteExtremaPointsInBool
             
-        def locatePreciseKeyPointsInDOGs(self, discreteExtremaPointsInBool, iterateMaxTimes=5, totalOffsetUpperLimit=5, stopOnceOffsetLimit=0.5, derivMatCoeff=80):
+        def locatePreciseKeyPointsInDOGs(self, discreteExtremaPointsInBool, iterateMaxTimes=5, totalOffsetUpperLimit=5, stopOnceOffsetLimit=0.5, derivMatCoeff=1):
             """
             找出亚像素极值点
             Related Blogs
@@ -165,7 +165,7 @@ class MyDifferenceOfGaussianPyramid():
             [SIFT算法详解](https://blog.csdn.net/zddblog/article/details/7521424)
             [Sift 关键点检测](https://zhuanlan.zhihu.com/p/462061756)
             """
-            contrastThreshold = self.T/self.wantedUsefulDOGs
+            contrastThreshold = self.T/self.wantedUsefulDOGs*255
             singularMatrixPoints = 0
             outOfBoundPoints = 0
             noChangeInfeasiblePoints = 0
@@ -181,12 +181,17 @@ class MyDifferenceOfGaussianPyramid():
                             totalOffset = np.zeros_like(pointOrigin,dtype=np.float32)  # 记录迭代的总的偏移量，初始为全零
                             for iter in range(iterateMaxTimes):  # 限制迭代次数
                                 derivRowVector, hessianMatrix = self.computeDerivativeAndHessianMatrix(iterPoint, derivMatCoeff)
-                                if(np.linalg.det(hessianMatrix)==0):  # 避免后续遇到奇异值矩阵无法迭代
-                                    # print("[locatePreciseKeyPointsInDOGs] : Singular Hessian Matrix at point",(i,j,k)," | Iteration : ", iter)
-                                    # print(hessianMatrix)
-                                    singularMatrixPoints += 1
-                                    break
-                                tempOffsetFloat = -(hessianMatrix.I)*(derivRowVector.T)  # 矩阵对象可以通过 .I 更方便的求逆
+                                # 不使用伪逆，需要跳过奇异矩阵，避免后续遇到奇异值矩阵无法迭代
+                                # if(np.linalg.det(hessianMatrix)==0):
+                                #     # print("[locatePreciseKeyPointsInDOGs] : Singular Hessian Matrix at point",(i,j,k)," | Iteration : ", iter)
+                                #     # print(hessianMatrix)
+                                #     singularMatrixPoints += 1
+                                #     break
+                                # hessianMatrixInv = np.linalg.inv(hessianMatrix)
+                                # 使用伪逆
+                                hessianMatrixInv = np.linalg.pinv(hessianMatrix)
+
+                                tempOffsetFloat = -hessianMatrixInv*(derivRowVector.T)  # 矩阵对象可以通过 .I 更方便的求逆
                                 tempOffsetInt = (np.round(tempOffsetFloat)).astype(dtype=np.int32)
                                 iterPoint += tempOffsetInt  # 更新当前迭代点的位置
 
@@ -207,9 +212,10 @@ class MyDifferenceOfGaussianPyramid():
                                         trHessianXY = hessianMatrixXY.trace()
                                         detHessianXY = np.linalg.det(hessianMatrixXY)
                                         # 消除低对比度的点以及边缘效应
-                                        if abs(tempFunctionVal) < contrastThreshold:
+                                        if abs(tempFunctionVal) < contrastThreshold:  # 跳过低对比度
                                             break
-                                        if not ((detHessianXY>0) and ((trHessianXY**2/detHessianXY)<12.1)):
+                                        if not ((detHessianXY>0) and ((trHessianXY**2/detHessianXY)<12.1)):  # 排除边缘效应  # gamma=10, threshold=(10+1)*(10+1)/10
+                                        # if not ((detHessianXY>0) and ((trHessianXY**2/detHessianXY)<7.2)):  # gamma=5, threshold=(5+1)*(5+1)/5
                                             break
                                         # 通过检查
                                         if [posS,posX,posY] not in self.preciseKeyPointsPosInOctaveList:
@@ -229,11 +235,11 @@ class MyDifferenceOfGaussianPyramid():
             print("len(self.preciseKeyPointsPosInOctaveList) : ",len(self.preciseKeyPointsPosInOctaveList))
             print(self.preciseKeyPointsPosInOriginImgList)
             print("len(self.preciseKeyPointsPosInOriginImgList) : ",len(self.preciseKeyPointsPosInOriginImgList))
-            self.showPreciseKeyPointsInOriginImg()
+            # self.showPreciseKeyPointsInOriginImg()
             
 
 
-        def computeDerivativeAndHessianMatrix(self, pointCol3D, derivMatCoeff):
+        def computeDerivativeAndHessianMatrix(self, pointCol3D, derivMatCoeff=1):
             """利用有限差分法求导，pointCol3D是(3*1)列向量，derivMatCoeff用于后续缩放系数"""
             # 一阶偏导和二阶偏导的放缩系数
             # 如果这些系数小于1，则相乘后得到的hessian矩阵变小，之后迭代所利用的hessian.inv变大
@@ -267,16 +273,26 @@ class MyDifferenceOfGaussianPyramid():
             # 返回值
             return DerivRowVector1by3, HessianMat3by3
 
-        def showPreciseKeyPointsInOriginImg(self):
-            imgWithKeyPoints = self.octaveGrayImg
-            for pos in self.preciseKeyPointsPosInOriginImgList:
-                # 注意圆心坐标不是row-col坐标系，而是x-y坐标系
-                cv2.circle(imgWithKeyPoints,center=(pos[2],pos[1]),radius=pos[0]*4,color=(0,255,0),thickness=1)
-            cv2.imshow("imgWithKeyPoints", imgWithKeyPoints)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-            print(self.octaveSigmas)
-
+        def showPreciseKeyPointsInOriginImg(self, outerImg=None):
+            if outerImg is None:
+                imgWithKeyPoints = (self.octaveGrayImg()).copy()
+                for pos in self.preciseKeyPointsPosInOctaveList:
+                    # 注意圆心坐标不是row-col坐标系，而是x-y坐标系
+                    cv2.circle(imgWithKeyPoints,center=(pos[2],pos[1]),radius=pos[0]*4,color=(0,255,0),thickness=1)
+                cv2.imshow("imgWithKeyPoints", imgWithKeyPoints)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+                print(self.octaveSigmas)
+            else:
+                imgWithKeyPoints = outerImg.copy()
+                for pos in self.preciseKeyPointsPosInOriginImgList:
+                    # 注意圆心坐标不是row-col坐标系，而是x-y坐标系
+                    cv2.circle(imgWithKeyPoints,center=(pos[2],pos[1]),radius=pos[0]*4,color=(0,255,0),thickness=1)
+                cv2.imshow("imgWithKeyPoints", imgWithKeyPoints)
+                cv2.waitKey(0)
+                cv2.destroyAllWindows()
+                print(self.octaveSigmas)
+                
 
 def MySIFT(img):
     """
@@ -294,14 +310,27 @@ def MySIFT(img):
     pass
 
 
-
-
 if __name__ == "__main__":
-    img = cv2.imread(r"./PicsForCode/FeatureExtract/flower.webp")
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    pyramid = MyDifferenceOfGaussianPyramid(img,None,2,visualGenerate=False)
+    img = cv2.imread(r"./PicsForCode/FeatureExtract/lena_head.png")
+    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    pyramid = MyDifferenceOfGaussianPyramid(imgGray,None,2,visualGenerate=False)
     discreteExtremaPointsInBool = (pyramid.allOctaves[0]).locateDiscreteKeyPointsInDOGs(pyramid.wantedUsefulDOGs)
     preciseExtremaPointsInBool = (pyramid.allOctaves[0]).locatePreciseKeyPointsInDOGs(discreteExtremaPointsInBool)
-
+    
+    # imgList = []
+    # for i in range(discreteExtremaPointsInBool.shape[0]):
+    #     imgCopy = ((pyramid.allOctaves[0]).octaveDOGs[i]).copy()
+    #     for row in range(discreteExtremaPointsInBool.shape[1]):
+    #         for col in range(discreteExtremaPointsInBool.shape[2]):
+    #             if discreteExtremaPointsInBool[i,row,col]:
+    #                 cv2.circle(imgCopy,center=(col,row),radius = 1, color=(0,255,0),thickness=1)
+    #     imgList.append(imgCopy)
+        
+    # for idx,imgCopy in enumerate(imgList):
+    #     cv2.imshow("imgID:%d"%(idx),imgCopy)
+    # cv2.waitKey(0)
+    # cv2.destroyAllWindows()
+    
+    (pyramid.allOctaves[0]).showPreciseKeyPointsInOriginImg(img)
 
     pass
