@@ -7,15 +7,15 @@ class MyDifferenceOfGaussianPyramid():
     """
     ClassName       :   高斯差分金字塔 \n
     ClassDescribe   :   \n
-    Specification   :   \n
+    Specification   :   \n`
     """
 
-    def __init__(self, imgGray, octaveNumOfPyramid = None, wantedUsefulDOGs = None, T=0.04, visualGenerate = False):
+    def __init__(self, imgGray, octaveNumOfPyramid = None, wantedUsefulDOGs = None, T=0.04, visualGenerateImshowTime=-1):
         """
         FunctionDescribe:   
                             Init the DOGs Pyramid. Octaves模拟近大远小，高斯核卷积模拟清晰和模糊 \n
         InputParameter  :   
-                            ①imgGray只接受单通道的灰度图 \n
+                            ①imgGray只接受单通道的灰度图，且数据为整形[0,255] \n
                             ②octaveNumOfPyramid(>0) : 如果是None，则使用论文推荐值 \n
                             ③wantedUsefulDOGs(>0)   : 一层octave差分得到的DOGs中可用于三维特征提取的层数，其值+3即为一层octave所含的slices数量 \n 
                                                         +3的解释：首先DOGs的上下两层不能使用(无法求导找极值点)，所以+2;其次是差分所得，所以要再+1 \n
@@ -50,9 +50,9 @@ class MyDifferenceOfGaussianPyramid():
         self.sigmaGainPerOctave = 2  # 相邻octave的sigma增益（论文推荐值，self.sigmaGainPerSlice的wantedUsefulDOGs次方，即为2）
         self.allOctaves = []  # 创建Octaves数组
         self.pyramidFirstSigma = math.sqrt(1.6**2-0.5**2)  # 论文经验值  # 0.5是摄像图初始的模糊度，1.6是论文认为的需要达到的模糊度
-        self.visualGenerate = visualGenerate
+        self.visualGenerateImshowTime = visualGenerateImshowTime
         self.T = T
-        self.contrastThreshold = (self.T)/(self.wantedUsefulDOGs)*255  # 乘以255相当于重映射
+        self.contrastThreshold = (self.T)/(self.wantedUsefulDOGs)*255  # 乘以255相当于重映射[0,1]->[0,255]
         self.generateGaussianOctaves()  # 在初始化时，顺便构建高斯金字塔(不是差分)
 
     def generateGaussianOctaves(self):
@@ -60,7 +60,7 @@ class MyDifferenceOfGaussianPyramid():
         tempOctaveSigma = self.pyramidFirstSigma
         for octaveID in range(self.octaveNumOfPyramid):  # idx小的在下
             tempOctave = self.MyOctave(octaveID, self.sliceNumOfOctave, tempOctaveImg, tempOctaveSigma
-                                        , self.sigmaGainPerSlice, self.contrastThreshold, self.visualGenerate)  # 会自动调用slice的generate函数
+                                        , self.sigmaGainPerSlice, self.contrastThreshold, self.visualGenerateImshowTime)  # 会自动调用slice的generate函数
             
             (self.allOctaves).append(tempOctave)  # 加入金字塔
 
@@ -77,7 +77,7 @@ class MyDifferenceOfGaussianPyramid():
         for octave in self.allOctaves:
             octave.locatePreciseKeyPointsInDOGs(iterateMaxTimes, totalOffsetUpperLimit, stopOnceOffsetLimit, derivMatCoeff)
 
-    def visualizePreciseKeyPointsInAllOctaves(self, outerImg=None):
+    def showPreciseKeyPointsInAllOctaves(self, outerImg=None):
         for octave in self.allOctaves:
             octave.showPreciseKeyPoints(outerImg)
 
@@ -88,7 +88,8 @@ class MyDifferenceOfGaussianPyramid():
         ClassDescribe   :   内部类
         Specification   :   
         """
-        def __init__(self, octaveID, sliceNumOfOctave, octaveGrayImg, octaveFirstSigma, sigmaGainPerSlice, contrastThreshold, visualGenerate = False):
+        def __init__(self, octaveID, sliceNumOfOctave, octaveGrayImg, octaveFirstSigma, sigmaGainPerSlice, 
+                        contrastThreshold, visualGenerateImshowTime=-1):
             self.octaveID = octaveID  # octave的编号，小的在下，尺寸跟大
             self.sliceNumOfOctave = sliceNumOfOctave  # octave所含slice数量
             self.DOGNumOfOctave = sliceNumOfOctave -1  # octave所含DOG数量
@@ -103,11 +104,13 @@ class MyDifferenceOfGaussianPyramid():
             self.sigmaGainPerSlice = sigmaGainPerSlice  # slice间的sigma放大比例
             self.octaveGaussianKSize = []  # 高斯卷积核的大小
             self.contrastThreshold = contrastThreshold
-            self.visualGenerate = visualGenerate
+            self.visualGenerateImshowTime = visualGenerateImshowTime
             self.preciseKeyPointsPosInOctaveList = []
             self.preciseKeyPointsPosInOriginImgList = []
             self.generateOctaveSlices()  # 初始化时，顺便将slices生成
             self.generateOctaveDOGs()
+            # print(self.octaveSigmas)
+            # exit(-1)
 
         def generateOctaveSlices(self):
             tempSigma = self.octaveFirstSigma
@@ -120,22 +123,22 @@ class MyDifferenceOfGaussianPyramid():
 
                 (self.octaveSigmas).append(tempSigma)
 
-                if self.visualGenerate:
-                    print("[MyOctave] : ", "octaveID : ", self.octaveID, " | slicesShape : "
-                            , self.slicesShape, " | sliceID : " ,sliceID ," | kSize : ", tempKSize ," | sigma : ", tempSigma)
-                    cv2.imshow("tempGaussianImg", tempGaussianImg)
-                    cv2.waitKey(200)
-                    cv2.destroyAllWindows()
+                # if (self.visualGenerateImshowTime) >= 0:
+                #     print("[MyOctave] : ", "octaveID : ", self.octaveID, " | slicesShape : "
+                #             , self.slicesShape, " | sliceID : " ,sliceID ," | kSize : ", tempKSize ," | sigma : ", tempSigma)
+                #     cv2.imshow("tempGaussianImg", tempGaussianImg)
+                #     cv2.waitKey(self.visualGenerateImshowTime)
+                #     cv2.destroyAllWindows()
 
                 tempSigma = tempSigma*self.sigmaGainPerSlice  # 为下一次sigma做准备
 
         def generateOctaveDOGs(self):
-            for tempDOGID in range(self.DOGNumOfOctave):
+            for imgIdx, tempDOGID in enumerate(range(self.DOGNumOfOctave)):
                 tempDOG = self.octaveGaussianImgs[tempDOGID]-self.octaveGaussianImgs[tempDOGID+1]
                 (self.octaveDOGs)[tempDOGID] = tempDOG
-                if self.visualGenerate:
-                    cv2.imshow("tempGaussianImg", tempDOG)
-                    cv2.waitKey(200)
+                if (self.visualGenerateImshowTime) >= 0:
+                    cv2.imshow("Octave ID: %d | DOG No: %d"%(self.octaveID, imgIdx), tempDOG)
+                    cv2.waitKey(self.visualGenerateImshowTime)
                     cv2.destroyAllWindows()
 
         def get2DGaussianKernelSizeBySigma(self, sigma):  # 使用sigma反推kernelSize，二维元组
@@ -143,6 +146,7 @@ class MyDifferenceOfGaussianPyramid():
             # https://docs.opencv.org/4.x/d4/d86/group__imgproc__filter.html#gac05a120c1ae92a6060dd0db190a61afa
             # kernelLen = int(((sigma-0.8)/0.3+1)*2+1)  # 利用OpenCV函数反推
             kernelLen = int(3*sigma +1)  # ×3+1的反推策略
+            kernelLen = int(6*sigma +1)  # ×6+1的反推策略
 
             if kernelLen%2.0==0:  # 保证为奇数
                 kernelLen = kernelLen+1
@@ -245,7 +249,6 @@ class MyDifferenceOfGaussianPyramid():
             # print("[locatePreciseKeyPointsInDOGs] : noChangeInfeasiblePoints:%d"%(noChangeInfeasiblePoints))
             print("[locatePreciseKeyPointsInDOGs] : 在 OctaveID=%d 找到 %d 个精确的极值点"%(self.octaveID, len(self.preciseKeyPointsPosInOctaveList)))
 
-
         def computeDerivativeAndHessianMatrix(self, pointCol3D, derivMatCoeff):
             """利用有限差分法求导，返回，　\n
             输入的pointCol3D是(3*1)列向量，derivMatCoeff是用于后续缩放系数"""
@@ -282,19 +285,23 @@ class MyDifferenceOfGaussianPyramid():
         def showPreciseKeyPoints(self, outerImg=None):
             """都是使用图片的拷贝，不必担心改变原图"""
             if outerImg is None:  # 没有传入外部图片,则在缩小的图片中展示关键点
-                imgWithKeyPoints = (self.octaveGrayImg).copy()
+                imgWithKeyPoints = ((self.octaveGrayImg).copy()).astype(np.uint8)  # 转为uint8否则imshow显示不出正确的灰度图
+                if len(self.preciseKeyPointsPosInOctaveList)==0:
+                    return
                 for pos in self.preciseKeyPointsPosInOctaveList:
                     # 注意圆心坐标不是row-col坐标系，而是x-y坐标系
-                    cv2.circle(imgWithKeyPoints,center=(pos[2],pos[1]),radius=pos[0]*4,color=(0,255,0),thickness=1)
-                cv2.imshow("ImgWithKeyPoints%d"%(self.octaveID), imgWithKeyPoints)
+                    cv2.circle(imgWithKeyPoints,center=(pos[2],pos[1]),radius=pos[0]*4,color=0,thickness=1)  # 灰度图，故color使用0，而非元组
+                cv2.imshow("ImgWithKeyPoints OctaveID: %d"%(self.octaveID), imgWithKeyPoints)
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
             else:  # 传入外部图片，展示完整尺寸
                 imgWithKeyPoints = outerImg.copy()
+                if len(self.preciseKeyPointsPosInOriginImgList)==0:
+                    return
                 for pos in self.preciseKeyPointsPosInOriginImgList:
                     # 注意圆心坐标不是row-col坐标系，而是x-y坐标系
                     cv2.circle(imgWithKeyPoints,center=(pos[2],pos[1]),radius=pos[0]*4,color=(0,255,0),thickness=1)
-                cv2.imshow("ImgWithKeyPoints%d"%(self.octaveID), imgWithKeyPoints)
+                cv2.imshow("ImgWithKeyPoints OctaveID: %d"%(self.octaveID), imgWithKeyPoints)
                 cv2.waitKey(0)
                 cv2.destroyAllWindows()
 
@@ -320,11 +327,21 @@ def MySIFT(img):
 
 
 if __name__ == "__main__":
-    img = cv2.imread(r"./PicsForCode/FeatureExtract/lena_head.png")
-    imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    pyramid = MyDifferenceOfGaussianPyramid(imgGray,None,2,visualGenerate=False)
+    imgOrigin = cv2.imread(r"./PicsForCode/FeatureExtract/wuke02.jpeg")
+    imgGray = cv2.imread(r"./PicsForCode/FeatureExtract/wuke02.jpeg", cv2.IMREAD_GRAYSCALE)
+    imgMean = imgOrigin.mean(axis=-1).astype(np.uint8)
+
+    imgUse = imgMean
+
+    imgUse = cv2.pyrDown(imgUse)
+    imgUse = cv2.pyrDown(imgUse)
+    imgUse = cv2.pyrDown(imgUse)
+    imgUse = cv2.pyrUp(imgUse)
+    imgUse = cv2.pyrUp(imgUse)
+    imgUse = cv2.pyrUp(imgUse)
+
+    pyramid = MyDifferenceOfGaussianPyramid(imgUse,None,2,visualGenerateImshowTime=0)
     pyramid.locatePreciseKeyPointsInAllOcataves()
-    pyramid.visualizePreciseKeyPointsInAllOctaves()
-    
+    pyramid.showPreciseKeyPointsInAllOctaves()
 
     pass

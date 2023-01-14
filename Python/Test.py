@@ -1,12 +1,11 @@
 import numpy as np
 from numpy.linalg import inv
 import sys
+from MySIFT import *
+
+# [1.5198684153570665, 2.149418526020468, 3.039736830714133, 4.298837052040936, 6.079473661428266]
 
 if __name__ == "__main__":
-    mat = [ [-3     ,1.25   ,0.5],
-            [1.25   ,-1     ,-0.5],
-            [0.5    ,-0.5   ,-4]]
-    mat.append([1,2,3])
-    print(mat)
+    
     
     pass
